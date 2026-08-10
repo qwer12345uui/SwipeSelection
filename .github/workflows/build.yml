@@ -1,0 +1,79 @@
+name: Build (iOS 15 RootHide)
+
+on:
+  push:
+    paths:
+      - "RootHide/**"
+      - ".github/workflows/build.yml"
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  build:
+    runs-on: macos-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Install build tools
+        run: brew install ldid dpkg
+
+      - name: Install RootHide Theos + patched SDK
+        run: |
+          set -e
+          git clone --recursive --depth 1 https://github.com/roothide/theos.git "$HOME/theos"
+          curl -L -o /tmp/sdks.zip https://github.com/theos/sdks/archive/refs/heads/master.zip
+          unzip -q /tmp/sdks.zip -d /tmp/sdks
+          mkdir -p "$HOME/theos/sdks"
+          cp -R /tmp/sdks/sdks-master/iPhoneOS16.5.sdk "$HOME/theos/sdks/"
+          ls -l "$HOME/theos/sdks"
+
+      - name: Build deb
+        working-directory: RootHide
+        run: |
+          set -o pipefail
+          export THEOS="$HOME/theos"
+          export PATH="$THEOS/bin:$PATH"
+          make clean
+          make package FINALPACKAGE=1 2>&1 | tee build.log
+          ls -l packages/
+          shasum -a 256 packages/*.deb
+
+      - name: Upload deb artifact
+        if: success()
+        uses: actions/upload-artifact@v4
+        with:
+          name: com.icraze.swipeselection_2.3_roothide
+          path: RootHide/packages/*.deb
+
+      - name: Remove broken old releases
+        if: success()
+        run: |
+          gh release delete roothide-2.1 --yes || true
+          gh release delete roothide-2.2 --yes || true
+          git push origin :refs/tags/roothide-2.1 || true
+          git push origin :refs/tags/roothide-2.2 || true
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Publish deb to Releases
+        if: success()
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: roothide-2.3
+          name: SwipeSelection 2.3 (RootHide, arm64e)
+          body: "iOS 15.0+ RootHide 隐根越狱构建产物（基于 iCraze 维护版源码移植，加固防 watchdog 安全模式）。提交: ${{ github.sha }} / 运行: #${{ github.run_number }}"
+          files: RootHide/packages/*.deb
+
+      - name: Publish build log on failure
+        if: failure()
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          mkdir -p build-logs
+          cp RootHide/build.log "build-logs/run-${{ github.run_number }}.log" 2>/dev/null || echo "build.log missing (failure before build step)" > "build-logs/run-${{ github.run_number }}.log"
+          git add build-logs/
+          git commit -m "[ci] build log for run ${{ github.run_number }}"
+          git push origin HEAD:${{ github.ref_name }}

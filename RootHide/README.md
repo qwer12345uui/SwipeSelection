@@ -10,14 +10,14 @@
 错误是 `pointer authentication failure`，出错地址在本插件 dylib 的 `__DATA` 段内
 （libobjc 正在读取 `SSPanGestureRecognizer` 的类信息）。**代码一行都没执行就崩了**。
 
-根因：2.1–2.3 全部在 `macos-latest`（Xcode 26 / iPhoneOS26 SDK）上编译，
-新工具链生成的 arm64e ObjC 元数据/指针鉴权格式，iOS 15.0 的老 libobjc 无法识别
+根因：2.1–2.3 全部在最新版 Xcode（26.x / iPhoneOS26 SDK）工具链下编译，
+其生成的 arm64e ObjC 元数据/指针鉴权格式，iOS 15.0 的老 libobjc 无法识别
 ——所以改代码没用，任何进程注入这个 dylib 都会在加载时崩溃
 （SpringBoard 崩 = 安全模式；设置崩 = 闪退）。
 
-**2.4 修复**：改用 Dopamine2-roothide 官方 CI 同款组合——
-`macos-13` 运行器（Xcode 14 时代工具链）+ theos 补丁版 `iPhoneOS16.5.sdk`
-（`TARGET = iphone:clang:16.5:15.0`），生成 iOS 15.0 能正确加载的 arm64e 二进制。
+**2.4 修复**：CI 改用 `macos-15` 运行器并显式选择镜像上**最老的 Xcode**（16.x 时代
+工具链），配合 theos 补丁版 `iPhoneOS16.5.sdk`（`TARGET = iphone:clang:16.5:15.0`），
+生成 iOS 15.0 能正确加载的 arm64e 二进制。
 
 ## 相对 iCraze 上游源码的改动（仅限编译与稳定性加固，无行为变更）
 
@@ -34,7 +34,7 @@
 或在仓库 Actions 页手动运行 **Build (iOS 15 RootHide)**。
 编译成功后 `.deb` 会出现在该次运行的 **Artifacts** 以及仓库 **Releases**（标签 `roothide-2.4`）中。
 
-**本地编译**（macOS + roothide/theos，注意不要用太新的 Xcode，推荐 Xcode 14/15）：
+**本地编译**（macOS + roothide/theos，注意不要用太新的 Xcode，推荐 Xcode 15/16）：
 
 ```bash
 brew install ldid dpkg

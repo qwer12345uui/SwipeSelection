@@ -12,15 +12,26 @@ permissions:
 
 jobs:
   build:
-    # Pinned to macos-13 on purpose: its Xcode-era toolchain emits arm64e
-    # binaries that iOS 15.0's libobjc can load. macos-latest (Xcode 26)
-    # produces dylibs that crash every injected process at load time
-    # (pointer authentication failure in libobjc reading __DATA).
-    # Same combination as the Dopamine2-roothide project's own CI.
-    runs-on: macos-13
+    # Toolchain note: the newest Xcode (26.x, default on current images)
+    # emits arm64e ObjC metadata that iOS 15.0's libobjc cannot load —
+    # every injected process crashed at load time (pointer authentication
+    # failure reading the dylib's __DATA) = Safe Mode / instant app crash.
+    # So: use macos-15 (macos-13 is retired) and explicitly select the
+    # OLDEST Xcode on the image (16.x era, proven for iOS 15 tweaks).
+    runs-on: macos-15
     steps:
       - name: Checkout
         uses: actions/checkout@v4
+
+      - name: Select oldest available Xcode (iOS 15-compatible toolchain)
+        run: |
+          set -e
+          XCODE=$(ls -d /Applications/Xcode_*.app 2>/dev/null | grep -Ev 'Xcode_(26|27)' | head -n 1)
+          if [ -z "$XCODE" ]; then XCODE="/Applications/Xcode.app"; fi
+          echo "Selected Xcode: $XCODE"
+          sudo xcode-select -s "$XCODE/Contents/Developer"
+          xcodebuild -version
+          xcrun clang --version
 
       - name: Install build tools
         run: brew install ldid dpkg
@@ -70,7 +81,7 @@ jobs:
         with:
           tag_name: roothide-2.4
           name: SwipeSelection 2.4 (RootHide, arm64e)
-          body: "iOS 15.0+ RootHide 隐根越狱构建产物（基于 iCraze 维护版源码；macos-13 + iPhoneOS16.5 SDK 旧工具链编译，修复 2.1-2.3 注入即崩/安全模式问题）。提交: ${{ github.sha }} / 运行: #${{ github.run_number }}"
+          body: "iOS 15.0+ RootHide 隐根越狱构建产物（基于 iCraze 维护版源码；旧版 Xcode 工具链 + iPhoneOS16.5 SDK 编译，修复 2.1-2.3 注入即崩/安全模式问题）。提交: ${{ github.sha }} / 运行: #${{ github.run_number }}"
           files: RootHide/packages/*.deb
 
       - name: Publish build log on failure

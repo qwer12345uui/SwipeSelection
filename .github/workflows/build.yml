@@ -60,7 +60,7 @@ jobs:
         if: success()
         uses: actions/upload-artifact@v4
         with:
-          name: com.icraze.swipeselection_2.4_roothide
+          name: com.icraze.swipeselection_2.5_roothide
           path: RootHide/packages/*.deb
 
       - name: Remove broken old releases
@@ -79,9 +79,9 @@ jobs:
         if: success()
         uses: softprops/action-gh-release@v2
         with:
-          tag_name: roothide-2.4
-          name: SwipeSelection 2.4 (RootHide, arm64e)
-          body: "iOS 15.0+ RootHide 隐根越狱构建产物（基于 iCraze 维护版源码；旧版 Xcode 工具链 + iPhoneOS16.5 SDK 编译，修复 2.1-2.3 注入即崩/安全模式问题）。提交: ${{ github.sha }} / 运行: #${{ github.run_number }}"
+          tag_name: roothide-2.5
+          name: SwipeSelection 2.5 (RootHide, arm64e)
+          body: "iOS 15.0+ RootHide 隐根越狱构建产物（基于 iCraze 维护版源码；旧版 Xcode 工具链 + iPhoneOS16.5 SDK 编译）。2.5 修复：点击 123 键无法切换数字键盘——触摸钩子改用无副作用的 keyHitTestWithoutCharging: 并使用正确的 layout 坐标系。提交: ${{ github.sha }} / 运行: #${{ github.run_number }}"
           files: RootHide/packages/*.deb
 
       - name: Publish build log on failure

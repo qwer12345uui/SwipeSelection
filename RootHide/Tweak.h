@@ -87,7 +87,6 @@
 +(BOOL)shouldSkipCacheString:(id)arg1;
 +(id)stringForType:(int)arg1;
 +(id)treeOfType:(int)arg1;
-+(id)uniqueName;
 -(int)flickDirection;
 -(BOOL)isLeafType;
 -(BOOL)usesKeyCharging;
@@ -110,6 +109,7 @@
 -(id)keyHitTestWithoutCharging:(CGPoint)arg1;
 -(id)keyHitTestClosestToPoint:(CGPoint)arg1;
 -(id)keyHitTestContainingPoint:(CGPoint)arg1;
+-(UIKBKey *)SS_keyForTouch:(UITouch *)touch;
 -(BOOL)SS_shouldSelect;
 -(BOOL)SS_disableSwipes;
 -(BOOL)SS_isKanaKey;

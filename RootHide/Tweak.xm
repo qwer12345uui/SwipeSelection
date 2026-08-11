@@ -1,9 +1,20 @@
 // **************************************************** //
-//   SwipeSelection — iOS 15+ RootHide (隐根) build 2.4  //
+//   SwipeSelection — iOS 15+ RootHide (隐根) build 2.5  //
 //   Based on iCraze's maintained SwipeSelection 2.0     //
 //   (github.com/iCrazeiOS/SwipeSelection, iOS 4-16)     //
 //   Original author: Kyle Howells                       //
 // **************************************************** //
+//
+// 2.5 fix: tapping the "123" (More) key did not switch to the
+//   numbers keyplane on iOS 15+ — the key highlighted and the
+//   touch registered, but nothing happened.
+//   Cause: the touch hooks below called the *charging* keyHitTest:
+//   (which mutates the keyboard's per-touch key tracking) with the
+//   touch point expressed in touch.view's coordinate space instead
+//   of the layout's. On iOS 15+ that corrupts the key tracking for
+//   the More key and its keyplane-switch action is swallowed.
+//   Fix: new SS_keyForTouch: helper — uses the side-effect-free
+//   keyHitTestWithoutCharging: and [touch locationInView:self].
 //
 // 2.1-2.3 crash postmortem (from the user's Preferences crash log):
 //   Every process crashed AT INJECTION TIME — dyld -> libinjector
@@ -441,12 +452,33 @@
 
 
 %hook UIKeyboardLayoutStar
+
+// 2.5 fix: unified side-effect-free key lookup for the touch hooks below.
+// - Convert the touch point into the LAYOUT's coordinate space
+//   (touch.view is not necessarily the layout itself on modern iOS);
+// - Use keyHitTestWithoutCharging: — the plain keyHitTest: "charges" the
+//   key (mutates the keyboard's per-touch key tracking), which on iOS 15+
+//   swallows the "123"/More key's keyplane-switch action.
+%new
+-(UIKBKey *)SS_keyForTouch:(UITouch *)touch {
+	@try {
+		CGPoint point = [touch locationInView:self];
+		if ([self respondsToSelector:@selector(keyHitTestWithoutCharging:)]) {
+			return [self keyHitTestWithoutCharging:point];
+		}
+		return [self keyHitTest:point];
+	}
+	@catch (NSException *exception) {
+		return nil;
+	}
+}
+
 /*==============touchesBegan================*/
 -(void)touchesBegan:(NSSet *)touches withEvent:(UIEvent *)event {
 	@try {
 		UITouch *touch = [touches anyObject];
 
-		UIKBKey *keyObject = [self keyHitTest:[touch locationInView:touch.view]];
+		UIKBKey *keyObject = [self SS_keyForTouch:touch];
 		NSString *key = [[keyObject representedString] lowercaseString];
 
 		isDeleteKey = [key isEqualToString:@"delete"];
@@ -470,7 +502,7 @@
 	@try {
 		UITouch *touch = [touches anyObject];
 
-		UIKBKey *keyObject = [self keyHitTest:[touch locationInView:touch.view]];
+		UIKBKey *keyObject = [self SS_keyForTouch:touch];
 		NSString *key = [[keyObject representedString] lowercaseString];
 
 		// Delete key (or the arabic key which is where the shift key would be)
@@ -501,7 +533,7 @@
 
 	@try {
 		UITouch *touch = [touches anyObject];
-		NSString *key = [[[self keyHitTest:[touch locationInView:touch.view]] representedString] lowercaseString];
+		NSString *key = [[[self SS_keyForTouch:touch] representedString] lowercaseString];
 
 		// Delete key
 		if ([key isEqualToString:@"delete"] && !isLongPressed && !isKanaKey) {

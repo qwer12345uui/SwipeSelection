@@ -1,9 +1,24 @@
 // **************************************************** //
-//   SwipeSelection — iOS 15+ RootHide (隐根) build 2.5  //
+//   SwipeSelection — iOS 15+ RootHide (隐根) build 2.6  //
 //   Based on iCraze's maintained SwipeSelection 2.0     //
 //   (github.com/iCrazeiOS/SwipeSelection, iOS 4-16)     //
 //   Original author: Kyle Howells                       //
 // **************************************************** //
+//
+// 2.6 fix (123 key still dead after 2.5):
+//   The remaining interference channel was the pan recognizer itself.
+//   UIPanGestureRecognizer.delaysTouchesEnded defaults to YES — the
+//   keyboard view only received touchesEnded after our recognizer
+//   failed. Letter keys commit on touch-DOWN and were unaffected;
+//   control keys like "123"/More commit on touch-UP, so their
+//   keyplane-switch action was swallowed (tap highlights, nothing
+//   happens).
+//   Fix (see SSPanGestureRecognizer.m):
+//   1. delaysTouchesBegan/Ended = NO — touch delivery is never delayed;
+//   2. gestureRecognizerShouldBegin: rejects swipes that START on a
+//      control key (More/Delete/Shift/International/Return/...), which
+//      also restores iOS' native "hold 123 & slide to a number" gesture;
+//   3. init hooks no longer add a duplicate recognizer.
 //
 // 2.5 fix: tapping the "123" (More) key did not switch to the
 //   numbers keyplane on iOS 15+ — the key highlighted and the
@@ -42,6 +57,9 @@
 //      when the runtime maps this dylib's ObjC metadata.
 //   5. roothide/theos toolchain: THEOS_PACKAGE_SCHEME=roothide,
 //      ARCHS=arm64e, iOS 15.0+, pinned patched SDK (see Makefile).
+//   6. (2.6) SSPanGestureRecognizer: delaysTouchesBegan/Ended = NO and a
+//      control-key gate in gestureRecognizerShouldBegin: — fixes the
+//      dead "123" key; init hooks guard against duplicate recognizers.
 //
 
 #import "Tweak.h"
@@ -54,10 +72,12 @@
 
 	if (orig) {
 		@try {
-			SSPanGestureRecognizer *pan = [[SSPanGestureRecognizer alloc] initWithTarget:self action:@selector(SS_KeyboardGestureDidPan:)];
-			pan.cancelsTouchesInView = NO;
-			[self addGestureRecognizer:pan];
-			[self setSS_pan:pan];
+			if (![self SS_pan]) { // 2.6: never add a duplicate recognizer
+				SSPanGestureRecognizer *pan = [[SSPanGestureRecognizer alloc] initWithTarget:self action:@selector(SS_KeyboardGestureDidPan:)];
+				pan.cancelsTouchesInView = NO;
+				[self addGestureRecognizer:pan];
+				[self setSS_pan:pan];
+			}
 		}
 		@catch (NSException *exception) {}
 	}
@@ -70,10 +90,12 @@
 
 	if (orig) {
 		@try {
-			SSPanGestureRecognizer *pan = [[SSPanGestureRecognizer alloc] initWithTarget:self action:@selector(SS_KeyboardGestureDidPan:)];
-			pan.cancelsTouchesInView = NO;
-			[self addGestureRecognizer:pan];
-			[self setSS_pan:pan];
+			if (![self SS_pan]) { // 2.6: never add a duplicate recognizer
+				SSPanGestureRecognizer *pan = [[SSPanGestureRecognizer alloc] initWithTarget:self action:@selector(SS_KeyboardGestureDidPan:)];
+				pan.cancelsTouchesInView = NO;
+				[self addGestureRecognizer:pan];
+				[self setSS_pan:pan];
+			}
 		}
 		@catch (NSException *exception) {}
 	}

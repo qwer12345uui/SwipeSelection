@@ -1,29 +1,36 @@
 // **************************************************** //
-//   SwipeSelection — iOS 15+ RootHide (隐根) build 2.3  //
+//   SwipeSelection — iOS 15+ RootHide (隐根) build 2.4  //
 //   Based on iCraze's maintained SwipeSelection 2.0     //
 //   (github.com/iCrazeiOS/SwipeSelection, iOS 4-16)     //
 //   Original author: Kyle Howells                       //
 // **************************************************** //
 //
-// 2.1/2.2 safe-mode postmortem:
-//   2.1 rewrote the key tracking inside the gesture recognizer's
-//   touchesBegan (lock re-entry deadlock -> watchdog kill -> Safe Mode).
-//   2.2 used the ancient 1.5.2 codebase whose pre-iOS-13 assumptions
-//   still crash on iOS 15. This build instead ports iCraze's maintained
-//   fork, which ships iOS 13/14/16 code paths, the
-//   _UIKeyboardTextSelectionInteraction conflict fix, ARC, and a %ctor
-//   that only injects into app processes and SpringBoard.
+// 2.1-2.3 crash postmortem (from the user's Preferences crash log):
+//   Every process crashed AT INJECTION TIME — dyld -> libinjector
+//   (ellekit) -> libobjc faulted with a pointer-authentication failure
+//   while reading this dylib's __DATA (ObjC class metadata).
+//   Root cause: all three builds were produced on macos-latest with the
+//   newest Xcode (26.x) / iPhoneOS26.x SDK. That toolchain's arm64e
+//   output is not understood by iOS 15.0's libobjc. The hook code was
+//   never the problem — the binary format was. (HomeTapBackApp.dylib in
+//   the same log loads fine, proving the environment was OK.)
+//
+//   Fix in 2.4: build on macos-13 with the patched iPhoneOS16.5 SDK
+//   (TARGET = iphone:clang:16.5:15.0) — the same combination the
+//   Dopamine2-roothide project's own CI uses for iOS 15.0.
 //
 // Changes vs upstream iCraze source (build/stability hardening ONLY,
 // no behavioural changes):
 //   1. Every hook body is wrapped in @try/@catch, and %orig is always
-//      executed — an exception can never take down the hosting process
-//      (SpringBoard included), so no watchdog kill and no Safe Mode.
+//      executed — an exception can never take down the hosting process.
 //   2. SS_shouldSelect guards isShiftKeyBeingHeld with respondsToSelector.
 //   3. Tweak.h: fixed the illegal (void)arg2 parameter declaration and
 //      unified keyHitTest: return type to id (modern clang errors).
-//   4. roothide/theos toolchain: THEOS_PACKAGE_SCHEME=roothide,
-//      ARCHS=arm64e, minimum iOS 15.0.
+//   4. Renamed the "UITextInputPrivate" protocol to SSPrivateTextInput —
+//      it collided with UIKit's real private protocol of the same name
+//      when the runtime maps this dylib's ObjC metadata.
+//   5. roothide/theos toolchain: THEOS_PACKAGE_SCHEME=roothide,
+//      ARCHS=arm64e, iOS 15.0+, pinned patched SDK (see Makefile).
 //
 
 #import "Tweak.h"
@@ -143,7 +150,7 @@
 		}
 
 		// Get the text input
-		id <UITextInputPrivate> privateInputDelegate = nil;
+		id <SSPrivateTextInput> privateInputDelegate = nil;
 		if ([keyboardImpl respondsToSelector:@selector(privateInputDelegate)]) {
 			privateInputDelegate = (id)keyboardImpl.privateInputDelegate;
 		}

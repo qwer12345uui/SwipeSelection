@@ -29,7 +29,10 @@
 -(id)initWithExecutionQueue:(id)arg1;
 @end
 
-@protocol UITextInputPrivate <UITextInput, UITextInputTokenizer>
+// NOTE: upstream iCraze named this protocol "UITextInputPrivate", which
+// collides with UIKit's real private protocol of the same name when the
+// runtime maps our dylib's ObjC metadata. Renamed with an SS prefix.
+@protocol SSPrivateTextInput <UITextInput, UITextInputTokenizer>
 -(BOOL)shouldEnableAutoShift;
 -(NSRange)selectionRange;
 -(CGRect)rectForNSRange:(NSRange)nsrange;
@@ -115,7 +118,7 @@
 @end
 
 @interface UIKeyboardImpl : UIView
-@property (readonly, assign, nonatomic) UIResponder <UITextInputPrivate> *privateInputDelegate;
+@property (readonly, assign, nonatomic) UIResponder <SSPrivateTextInput> *privateInputDelegate;
 @property (readonly, assign, nonatomic) UIResponder <UITextInput> *inputDelegate;
 @property (nonatomic,strong) UIPanGestureRecognizer *SS_pan;
 @property (nonatomic,retain) id feedbackBehavior; // iOS 10
